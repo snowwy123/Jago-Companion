@@ -1,0 +1,17 @@
+// SPDX-License-Identifier: MIT
+using System;using System.Drawing;using System.Drawing.Drawing2D;using System.Windows.Forms;using System.Linq;
+sealed class WindowGlyph:Button {
+ internal string Kind;internal bool Restored;bool over,down;
+ internal WindowGlyph(string kind){Kind=kind;Text="";SetStyle(ControlStyles.UserPaint|ControlStyles.AllPaintingInWmPaint|ControlStyles.OptimizedDoubleBuffer,true);FlatStyle=FlatStyle.Flat;TabStop=true;AccessibleName=kind;MouseEnter+=(s,e)=>{over=true;Invalidate();};MouseLeave+=(s,e)=>{over=down=false;Invalidate();};MouseDown+=(s,e)=>{down=true;Invalidate();};MouseUp+=(s,e)=>{down=false;Invalidate();};}
+ protected override void OnPaint(PaintEventArgs e){var g=e.Graphics;g.Clear(over?CompanionPalette.Mix(BackColor,ForeColor,down?.15f:.08f):BackColor);g.SmoothingMode=SmoothingMode.AntiAlias;float x=ClientSize.Width/2f,y=ClientSize.Height/2f,d=Math.Min(ClientSize.Width,ClientSize.Height)*.18f;using(var pen=new Pen(Enabled?ForeColor:CompanionPalette.Mix(BackColor,ForeColor,.4f),1.2f)){if(Kind=="Close"){g.DrawLine(pen,x-d,y-d,x+d,y+d);g.DrawLine(pen,x-d,y+d,x+d,y-d);}else if(Kind=="Minimise")g.DrawLine(pen,x-d,y+d*.6f,x+d,y+d*.6f);else if(Restored){g.DrawRectangle(pen,x-d+2,y-d,d*2-2,d*2-2);using(var brush=new SolidBrush(BackColor))g.FillRectangle(brush,x-d,y-d+2,d*2-2,d*2-2);g.DrawRectangle(pen,x-d,y-d+2,d*2-2,d*2-2);}else g.DrawRectangle(pen,x-d,y-d,d*2,d*2);}if(Focused)ControlPaint.DrawFocusRectangle(g,new Rectangle(3,3,Width-6,Height-6),ForeColor,BackColor);}
+}
+sealed class WindowSymbols:Panel {
+ readonly Form target;readonly Func<bool> allowed;internal readonly Button Minimise,Maximise,CloseButton;
+ internal WindowSymbols(Form form,Func<bool> enable){target=form;allowed=enable;Height=30;Width=96;DoubleBuffered=true;Minimise=Make("Minimise",()=>form.WindowState=FormWindowState.Minimized);Maximise=Make("Maximise",()=>form.WindowState=form.WindowState==FormWindowState.Maximized?FormWindowState.Normal:FormWindowState.Maximized);CloseButton=Make("Close",()=>form.Close());Controls.Add(Minimise);Controls.Add(Maximise);Controls.Add(CloseButton);Minimise.Left=0;Maximise.Left=32;CloseButton.Left=64;form.Resize+=(s,e)=>RefreshState();}
+ Button Make(string name,Action run){var b=new WindowGlyph(name){Width=32,Height=28,Padding=Padding.Empty,Margin=Padding.Empty};var tip=new ToolTip();tip.SetToolTip(b,name=="Maximise"?"Maximise / restore":name);Disposed+=(s,e)=>tip.Dispose();b.Click+=(s,e)=>run();return b;}
+ internal void RefreshState(){bool enabled=allowed==null||allowed();Minimise.Enabled=Maximise.Enabled=enabled;bool restored=target.WindowState==FormWindowState.Maximized;if(((WindowGlyph)Maximise).Restored!=restored){((WindowGlyph)Maximise).Restored=restored;Maximise.Invalidate();}}
+}
+sealed partial class Companion {
+ WindowSymbols windowSymbols;
+ internal void SetupWindowSymbols(){foreach(var strip in new[]{top,memoTools})foreach(var item in strip.Items.Cast<ToolStripItem>().Where(x=>x.Text=="Close").ToArray())strip.Items.Remove(item);windowSymbols=new WindowSymbols(this,()=>!IsTabbed);Controls.Add(windowSymbols);top.Padding=new Padding(8,4,108,4);memoTools.Padding=new Padding(8,4,108,4);Layout+=(s,e)=>{windowSymbols.Location=new Point(ClientSize.Width-windowSymbols.Width-8,5);windowSymbols.Visible=!IsTabbed&&FormBorderStyle==FormBorderStyle.None;if(Controls.GetChildIndex(windowSymbols)!=0)windowSymbols.BringToFront();windowSymbols.RefreshState();};}
+}

@@ -1,0 +1,6 @@
+// SPDX-License-Identifier: MIT
+using System;using System.Text;using System.Text.RegularExpressions;using System.Web;using System.Windows.Forms;
+static class ClipboardTools {
+ internal static string FormatHtml(string fragment){string before="<html><body><!--StartFragment-->",after="<!--EndFragment--></body></html>",template="Version:1.0\r\nStartHTML:{0:0000000000}\r\nEndHTML:{1:0000000000}\r\nStartFragment:{2:0000000000}\r\nEndFragment:{3:0000000000}\r\n";int start=Encoding.UTF8.GetByteCount(String.Format(template,0,0,0,0)),first=start+Encoding.UTF8.GetByteCount(before),last=first+Encoding.UTF8.GetByteCount(fragment),end=last+Encoding.UTF8.GetByteCount(after);return String.Format(template,start,end,first,last)+before+fragment+after;}
+ internal static void Signature(string source){string html=Regex.Replace(source,@"<(script|iframe|object|form)\b[^>]*>[\s\S]*?</\1\s*>","",RegexOptions.IgnoreCase);html=Regex.Replace(html,@"\s+on[a-z]+\s*=\s*(""[^""]*""|'[^']*'|[^\s>]+)","",RegexOptions.IgnoreCase);html=Regex.Replace(html,@"javascript\s*:","",RegexOptions.IgnoreCase);string text=HttpUtility.HtmlDecode(Regex.Replace(Regex.Replace(html,@"<br\s*/?>","\n",RegexOptions.IgnoreCase),@"<[^>]+>",""));var data=new DataObject();data.SetData(DataFormats.Html,FormatHtml(html));data.SetData(DataFormats.UnicodeText,text);Clipboard.SetDataObject(data,true);}
+}

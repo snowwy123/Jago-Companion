@@ -1,0 +1,12 @@
+{
+  "source": "Same pinned Microsoft.Web.WebView2 SDK as Jago Sound / Library",
+  "files": {
+    "LICENSE.txt": "0af8f1b807512aae39c2ac1aa4d0cae65cabecb6fd554b8439a5162a0d6eca55",
+    "NOTICE.txt": "106423785c5b7eba0a8e61d1837f2132e9c828e20ad530f565d981c1df60dd90",
+    "lib/net462/Microsoft.Web.WebView2.Core.dll": "e6f54c8ce208e3797c427d01ad671b47cb25abc85604753d6ec2546d0ffef550",
+    "lib/net462/Microsoft.Web.WebView2.WinForms.dll": "cc3d2937c350a4f5e20399855bcab4fe695a395308feb2ed67394faa6a1ae849",
+    "runtimes/win-x64/native/WebView2Loader.dll": "c66e4a92fdc7a216118e43b7a5024ea2200e8c43f9310bf20d96a0084f82c5bc"
+  },
+  "package": "Microsoft.Web.WebView2",
+  "version": "1.0.4191.47"
+}

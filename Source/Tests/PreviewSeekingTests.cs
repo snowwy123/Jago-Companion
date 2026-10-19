@@ -1,0 +1,12 @@
+// SPDX-License-Identifier: MIT
+using System;using System.Collections.Generic;
+static class PreviewSeekingTests {
+ static int checks;static void Check(bool ok,string message){if(!ok)throw new Exception(message);checks++;}
+ static void Main(){var calls=new List<string>();var state=new PreviewSeeking(()=>calls.Add("pause"),()=>calls.Add("play"),v=>calls.Add("seek:"+v),m=>calls.Add(m?"mute":"restore"));
+ state.Begin();for(int i=0;i<100;i++)state.Request(.9-i*.008);Check(calls.Count==2&&calls[0]=="mute"&&calls[1]=="pause","Scrubbing mutes and pauses once without decoder seeks");Check(!state.Commit(),"Drag cannot commit prematurely");state.Release();Check(state.Commit(),"Release commits");Check(calls.Count==3&&calls[2].StartsWith("seek:"),"Only final target goes to decoder");state.Finish();Check(calls[3]=="restore"&&calls[4]=="play","Restore and resume after settling");
+ state.Toggle();calls.Clear();state.Request(.2);state.Commit();state.Finish();Check(!calls.Contains("play"),"Paused playback stays paused");
+ calls.Clear();state.Request(.8);state.Commit();state.Request(.1);state.Commit();state.Toggle();Check(!calls.Contains("play"),"Play intent during pending seek is deferred");state.Finish();Check(calls[calls.Count-1]=="play","Latest target resumes once settled");
+ state.Begin();state.Request(.5);state.Cancel();int before=calls.Count;state.Finish();Check(calls.Count==before&&!state.Pending&&!state.Playing,"Close or decode failure cancels pending resume");
+ state.Playing=true;calls.Clear();Check(!state.End(false)&&state.Ended&&!state.Playing&&state.ButtonText=="Replay","Non-looping end offers Replay");state.Toggle();Check(state.Pending&&state.Playing&&!state.Ended&&state.Target==0,"Replay queues a seek to the start");Check(!calls.Contains("play"),"Replay waits for decoder seek");state.Commit();state.Finish();Check(calls[calls.Count-1]=="play"&&state.ButtonText=="Pause","Replay resumes with Pause label");Check(state.End(true)&&state.Pending&&state.Playing&&state.Target==0&&!state.Ended,"Loop queues restart without an ended state");Check(!state.End(false)&&state.Pending&&state.Playing,"Late end during seek does not cancel pending playback");state.Commit();state.Finish();state.End(false);state.Request(.3);Check(!state.Ended&&!state.Playing&&state.ButtonText=="Play","Seeking away from the end clears Replay and stays paused");state.Commit();state.Finish();
+ Console.WriteLine(checks+" seek checks passed");}
+}

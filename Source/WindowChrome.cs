@@ -1,0 +1,10 @@
+// SPDX-License-Identifier: MIT
+using System;using System.Drawing;using System.Windows.Forms;using System.Runtime.InteropServices;using System.Collections.Generic;
+static class BorderlessWindow {
+ static readonly HashSet<Form> moving=new HashSet<Form>();internal static bool Moving(Form form){return form!=null&&moving.Contains(form);}
+ internal static int Hit(Form f,Point screen){Point p=f.PointToClient(screen);int w=f.ClientSize.Width,h=f.ClientSize.Height,e=10;if(p.X<0||p.Y<0||p.X>w||p.Y>h)return 1;bool l=p.X<e,r=p.X>=w-e,t=p.Y<e,b=p.Y>=h-e;return t?(l?13:r?14:12):b?(l?16:r?17:15):l?10:r?11:1;}
+ internal static void Attach(Form f,Func<bool> locked){f.ResizeBegin+=(s,e)=>moving.Add(f);f.ResizeEnd+=(s,e)=>moving.Remove(f);f.FormClosed+=(s,e)=>moving.Remove(f);var hooks=new List<EdgeHook>();Action<Control> add=null;add=c=>{var hook=new EdgeHook(c,f,locked);hooks.Add(hook);foreach(Control child in c.Controls)add(child);c.ControlAdded+=(s,e)=>add(e.Control);};add(f);f.FormClosed+=(s,e)=>{foreach(var hook in hooks)hook.Release();};}
+ sealed class EdgeHook:NativeWindow {readonly Control c;readonly Form f;readonly Func<bool> locked;internal EdgeHook(Control control,Form form,Func<bool> test){c=control;f=form;locked=test;c.HandleCreated+=(s,e)=>AssignHandle(c.Handle);c.HandleDestroyed+=(s,e)=>Release();if(c.IsHandleCreated)AssignHandle(c.Handle);}internal void Release(){if(Handle!=IntPtr.Zero)ReleaseHandle();}
+ protected override void WndProc(ref Message m){if(m.Msg==0x84&&f.FormBorderStyle==FormBorderStyle.None&&f.WindowState!=FormWindowState.Maximized&&!locked()){Point screen=new Point((short)(m.LParam.ToInt64()&65535),(short)(m.LParam.ToInt64()>>16));int hit=Hit(f,screen);if(hit>1){m.Result=new IntPtr(hit);return;}}if(m.Msg==0xA1&&c!=f&&f.FormBorderStyle==FormBorderStyle.None&&!locked()&&m.WParam.ToInt32()>=10&&m.WParam.ToInt32()<=17){ReleaseCapture();SendMessage(f.Handle,0xA1,m.WParam,m.LParam);return;}base.WndProc(ref m);}}
+ [DllImport("user32.dll")]static extern bool ReleaseCapture();[DllImport("user32.dll")]internal static extern IntPtr SendMessage(IntPtr h,int m,IntPtr w,IntPtr l);
+}
