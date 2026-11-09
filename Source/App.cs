@@ -52,7 +52,29 @@ sealed partial class Companion:Form {
 
  internal void SelectNote(Note n){if(current!=n&&!SaveNow())return;loading=true;editor.ReadOnly=false;current=n;if(!store.Titles.ContainsKey(store.Relative(n.Path)))store.SetTitle(n,n.Title);editor.Text=n.Body;taskEntry.Text=LoadTaskDraft(n.Path);heading.Text=n.Title;LoadNoteMode(n);notes.SelectedItem=n;loading=false;RefreshTasks();if(view=="Tasks")tasks.Visible=true;UpdatePageView();Tell(store.Relative(n.Path));}
 
- internal void RefreshNotes(bool rebuild=true){loading=true;var selected=current;string chosen=Convert.ToString(folders.SelectedItem);if(rebuild){folders.Items.Clear();folders.Items.Add("All notebooks");folders.Items.Add("Favourites");foreach(string name in store.Notes.Select(n=>Path.GetDirectoryName(store.Relative(n.Path)).Replace('\\','/').Substring(5).Trim('/')).Where(x=>x.Length>0).Distinct().OrderBy(x=>x))folders.Items.Add(name);folders.SelectedItem=folders.Items.Contains(chosen)?chosen:"All notebooks";filter=Convert.ToString(folders.SelectedItem);}notes.Items.Clear();foreach(var n in store.Notes.Where(n=>(String.IsNullOrEmpty(search.Text)||n.Title.IndexOf(search.Text,StringComparison.OrdinalIgnoreCase)>=0||n.Body.IndexOf(search.Text,StringComparison.OrdinalIgnoreCase)>=0)&&(filter=="All notebooks"||filter=="Favourites"&&store.Stars.Contains(store.Relative(n.Path))||store.Relative(n.Path).StartsWith("Notes/"+filter+"/",StringComparison.OrdinalIgnoreCase))).OrderByDescending(n=>store.Stars.Contains(store.Relative(n.Path))).ThenByDescending(n=>File.GetLastWriteTimeUtc(n.Path)))notes.Items.Add(n);if(selected!=null)notes.SelectedItem=selected;loading=false;}
+ internal void RefreshNotes(bool rebuild=true){
+  loading=true;
+  notes.BeginUpdate();
+  try{
+   var selected=current;
+   string chosen=Convert.ToString(folders.SelectedItem),query=search.Text;
+   var entries=store.Notes.Select(note=>new{Note=note,Relative=store.Relative(note.Path)}).ToArray();
+   if(rebuild){
+    folders.Items.Clear();folders.Items.Add("All notebooks");folders.Items.Add("Favourites");
+    foreach(string name in entries.Select(entry=>Path.GetDirectoryName(entry.Relative).Replace((char)92,'/').Substring(5).Trim('/')).Where(x=>x.Length>0).Distinct().OrderBy(x=>x))folders.Items.Add(name);
+    folders.SelectedItem=folders.Items.Contains(chosen)?chosen:"All notebooks";
+    filter=Convert.ToString(folders.SelectedItem);
+   }
+   string prefix="Notes/"+filter+"/";
+   var rows=entries.Where(entry=>
+     (String.IsNullOrEmpty(query)||entry.Note.Title.IndexOf(query,StringComparison.OrdinalIgnoreCase)>=0||entry.Note.Body.IndexOf(query,StringComparison.OrdinalIgnoreCase)>=0)
+     &&(filter=="All notebooks"||filter=="Favourites"&&store.Stars.Contains(entry.Relative)||entry.Relative.StartsWith(prefix,StringComparison.OrdinalIgnoreCase)))
+     .OrderByDescending(entry=>store.Stars.Contains(entry.Relative)).ThenByDescending(entry=>entry.Note.ModifiedUtc)
+     .Select(entry=>(object)entry.Note).ToArray();
+   notes.Items.Clear();notes.Items.AddRange(rows);
+   if(selected!=null)notes.SelectedItem=selected;
+  }finally{notes.EndUpdate();loading=false;}
+ }
 
  internal void DrawNote(object sender,DrawItemEventArgs e){if(e.Index<0)return;var n=(Note)notes.Items[e.Index];bool chosen=(e.State&DrawItemState.Selected)!=0;using(var brush=new SolidBrush(chosen?CompanionPalette.Mix(panel,accent,.14f):panel))e.Graphics.FillRectangle(brush,e.Bounds);var titleRect=new Rectangle(e.Bounds.X+10,e.Bounds.Y+9,e.Bounds.Width-20,24);using(var bold=new Font(Font,FontStyle.Bold))TextRenderer.DrawText(e.Graphics,(store.Stars.Contains(store.Relative(n.Path))?"★ ":"")+n.Title,bold,titleRect,ink,TextFormatFlags.EndEllipsis);string notebook=Path.GetDirectoryName(store.Relative(n.Path)).Replace('\\','/').Substring(5).Trim('/');TextRenderer.DrawText(e.Graphics,(notebook.Length>0?notebook:"Inbox")+" · "+File.GetLastWriteTime(n.Path).ToString("dd MMM · HH:mm"),Font,new Rectangle(e.Bounds.X+10,e.Bounds.Y+36,e.Bounds.Width-20,22),muted,TextFormatFlags.EndEllipsis);e.DrawFocusRectangle();}
 
